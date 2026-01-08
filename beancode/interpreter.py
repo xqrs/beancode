@@ -428,6 +428,8 @@ class Interpreter:
             self.error(f"type of array index is {index_v.kind}, not an INTEGER!")
 
         v = self.visit_expr(ind.expr)
+        if v.kind == BCPrimitiveType.STRING:
+            return (index_v.val, None)
         a: BCArray = v.val  # type: ignore
 
         if a.typ.is_matrix():
@@ -495,11 +497,10 @@ class Interpreter:
                 res = a.get_flat()[tup[0] - a.get_flat_bounds()[0]]
                 return res
         elif v.kind == BCPrimitiveType.STRING:
-            self.error(
-                # FIXME: nicer diagnostics with the AST printer
-                f"cannot index a string!\nplease use SUBSTRING(YourString, YourIndex, 1) instead.",
-                ind.expr.pos,
-            )
+            i = self._get_array_index(ind)[0]
+            if i >= len(v.val):
+                return BCValue(BCPrimitiveType.CHAR, val='\0', is_array=False)
+            return BCValue(BCPrimitiveType.CHAR, val=v.val[i], is_array=False)
         else:
             self.error(f"cannot index {v.kind}", ind.expr.pos)
 
@@ -1670,6 +1671,12 @@ class Interpreter:
                 elif a.typ.is_flat() and a.typ.bounds != t.typ.bounds:  # type: ignore
                     self.error(f"mismatched array sizes in array assignment", s.pos)
         else:  # elif isinstance(s.ident, ArrayIndex)
+            v = self.visit_expr(s.ident.expr)
+            if v.kind == BCPrimitiveType.STRING and val.kind == BCPrimitiveType.CHAR:
+                i = self._get_array_index(s.ident)[0]
+                self.visit_expr(s.ident.expr).replace_inner(BCValue(
+                    BCPrimitiveType.STRING, val=v.val[:i] + val.val + v.val[i+1:], is_array=False
+                ))
             target = self.visit_expr(s.ident)
 
         should_promote_real = (

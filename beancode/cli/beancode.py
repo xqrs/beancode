@@ -161,7 +161,7 @@ def main():
         warn("Caught keyboard interrupt")
         exit(1)
     except EOFError:
-        warn("Caught EOF")
+        #warn("Caught EOF")
         exit(1)
     except RecursionError as e:
         warn("Python recursion depth exceeded! Did you forget your base case?")
